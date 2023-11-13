@@ -1,16 +1,14 @@
-import sys
-import numpy as np
+from datetime import datetime
 from pythonosc import dispatcher, osc_server
-import threading
-from collections import deque
+import numpy as np
 from scipy.signal import welch
-import pyqtgraph as pg
-from PyQt5 import QtWidgets
+from collections import deque
+import threading
 
 # Configuration
 ip = "0.0.0.0"
 port = 5000
-sampling_rate = 256  # Adjust based on your device's specifications
+sampling_rate = 256  # Adjust this based on your device's specifications
 segment_length = 1  # Length of each segment in seconds
 n_samples = segment_length * sampling_rate  # Number of samples in each segment
 
@@ -24,56 +22,55 @@ eeg_bands = {'Delta': (0.5, 4),
 # Circular buffer to store EEG data
 eeg_buffer = deque(maxlen=n_samples)
 
-# Initialize a dictionary to store band powers
-band_powers_history = {band: [] for band in eeg_bands}
-max_history = 50  # Maximum number of data points to display on the plot
+# Buffer for storing last 10 seconds of alpha averages
+alpha_buffer = deque(maxlen=10)
+prev = 0
 
 def eeg_handler(address: str, *args):
     eeg_buffer.extend(args)
 
+
 def process_eeg_data():
+    last_alpha_value = None
     while True:
         if len(eeg_buffer) == n_samples:
             segment = np.array(list(eeg_buffer))
             # Apply FFT
             freqs, psd = welch(segment, sampling_rate, nperseg=n_samples)
 
+            band_powers = {}
             for band in eeg_bands:
                 freq_ix = np.where((freqs >= eeg_bands[band][0]) &
                                    (freqs <= eeg_bands[band][1]))[0]
                 band_power = np.sum(psd[freq_ix])
                 band_power_dB = 10 * np.log10(band_power / 1)  # Reference power is 1 μV²/Hz
-                band_powers_history[band].append(band_power_dB)
-                if len(band_powers_history[band]) > max_history:
-                    band_powers_history[band].pop(0)
+                band_powers[band] = band_power_dB
 
-            # Update plot
-            for band in eeg_bands:
-                curves[band].setData(list(range(max_history)), band_powers_history[band])
+            # Update alpha buffer
+            alpha_buffer.append(band_powers['Alpha'])
 
-# Setup PyQtGraph
-app = QtWidgets.QApplication(sys.argv)
-win = pg.GraphicsLayoutWidget(show=True)
-win.setWindowTitle('Real-time EEG Band Powers')
-plots = {}
-curves = {}
+            # Print if there is a change
+            if last_alpha_value is not None and band_powers['Alpha'] != last_alpha_value:
+                if last_alpha_value is not None and abs(band_powers['Alpha'] - last_alpha_value) > 5:
+                    print(f"Change in Alpha band power: {band_powers['Alpha']} dB")
 
-for i, band in enumerate(eeg_bands):
-    plots[band] = win.addPlot(title=band, row=i, col=0)
-    curves[band] = plots[band].plot(pen=pg.mkPen(width=3))
-    plots[band].setYRange(-30, 30)  # Set the y-axis range
-    plots[band].setXRange(0, max_history)  # Set the x-axis range
+            last_alpha_value = band_powers['Alpha']
+
+            # Calculate and print 10-second average
+            if len(alpha_buffer) == alpha_buffer.maxlen:
+                ten_second_avg = np.mean(alpha_buffer)
+                # print(f"10-second average of Alpha band: {ten_second_avg}")
+
 
 if __name__ == "__main__":
     dispatcher = dispatcher.Dispatcher()
     dispatcher.map("/muse/eeg", eeg_handler)
 
     server = osc_server.ThreadingOSCUDPServer((ip, port), dispatcher)
-    print("Listening on UDP port "+str(port))
+    print("Listening on UDP port " + str(port))
 
     # Start a separate thread to process EEG data
-    processing_thread = threading.Thread(target=process_eeg_data, daemon=True)
+    processing_thread = threading.Thread(target=process_eeg_data)
     processing_thread.start()
 
-    # Start Qt event loop
-    sys.exit(app.exec_())
+    server.serve_forever()
