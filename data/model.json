@@ -1,0 +1,29 @@
+{
+    "objective": [
+        "multi:softprob"
+    ],
+    "max_depth": [
+        6
+    ],
+    "n_estimatorslver": [
+        100
+    ],
+    "colsample_bylevel": [
+        0.5
+    ],
+    "colsample_bytree": [
+        0.6
+    ],
+    "learning_rate": [
+        0.2
+    ],
+    "random_state": [
+        20
+    ],
+    "alpha": [
+        10
+    ],
+    "lambda": [
+        8
+    ]
+}
