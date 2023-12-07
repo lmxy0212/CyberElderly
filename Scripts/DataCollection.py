@@ -41,6 +41,14 @@ csv_file = open("ICEData/"+file_name, 'w', newline='')
 csv_writer = csv.writer(csv_file)
 csv_writer.writerow(['Timestamp', 'Engagement Index'])
 
+
+# Prompt for file name for Alpha, Beta, Theta data
+file_name_abt = input("Enter the name of the file to save Alpha, Beta, Theta data: ") + ".csv"
+csv_file_abt = open("ABTData/" + file_name_abt, 'w', newline='')
+csv_writer_abt = csv.writer(csv_file_abt)
+csv_writer_abt.writerow(['Timestamp', 'Alpha', 'Beta', 'Theta'])
+
+
 def eeg_handler(address: str, *args):
     # Assuming TP9 data is the first value in args
     tp9_data = args[0]
@@ -91,6 +99,8 @@ def process_eeg_data():
                 theta_buffer.append(avg_theta_5s)
 
                 print(f"5-second average Alpha: {avg_alpha_5s}, Beta: {avg_beta_5s}, Theta: {avg_theta_5s}")
+                # Write Alpha, Beta, Theta averages to the ABT file
+                csv_writer_abt.writerow([datetime.now().strftime('%Y-%m-%d %H:%M:%S'), avg_alpha_5s, avg_beta_5s, avg_theta_5s])
                 last_band_calc_time = current_time
 
             if current_time - last_ice_calc_time >= calc_interval:
@@ -116,6 +126,7 @@ def process_eeg_data():
         time.sleep(0.1)  # To avoid high CPU usage
 
     csv_file.close()
+    csv_file_abt.close()
     
 
 if __name__ == "__main__":
@@ -129,5 +140,3 @@ if __name__ == "__main__":
     processing_thread = threading.Thread(target=process_eeg_data)
     processing_thread.start()
     server.serve_forever()
-
-    
