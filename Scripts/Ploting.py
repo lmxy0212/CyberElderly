@@ -9,6 +9,11 @@ ice_max = 5.797174348220309
 stress_min = -222.45067603158407
 stress_max = 4877.199612025589
 
+ice_min = 0.148615902667383 
+ice_max = 4.0031659201573895 
+stress_min = 160.67041584039157 
+stress_max =  5599.420633107831 
+
 def process_ice_stress_data(input_file):
     # Read the CSV file using Pandas
     data = pd.read_csv("Cleaned/" +input_file)
